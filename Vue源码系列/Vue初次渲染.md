@@ -30,8 +30,10 @@ new Vue() 本质上是做了两件事，给Vue原型挂载各种函数，和处�
 3.initData
 4.initComputed
 5.initWatch
-    
+
+
 proxy 给target重写get set,并预设好sourceKey,之后向target取值赋值时,自动去下级sourceKey下找。
+
 ```js
 export function proxy (target: Object, sourceKey: string, key: string) {
   sharedPropertyDefinition.get = function proxyGetter () {
