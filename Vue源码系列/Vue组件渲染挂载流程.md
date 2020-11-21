@@ -91,12 +91,142 @@ createComponent对传入参数进行检查，假如是对象，此时同样会�
 所以二者本质都得被调用一遍extend()，转化为sub构造函数
 
 
-
-
  
-## 虚拟dom转化为实际dom的过程
+## 虚拟dom转化为实际dom的过程 与 patch函数 与 Diff算法
 
-## diff算法，patch函数
+_init 里调用 `vm.$mount(vm.$options.el)`
+
+`vm.$mount(vm.$options.el)` 里调用 `mountComponent`
+
+`mountComponent` 里调用 `vm._render()` 获得 vnode 再调用 `vm._update(vnode, hydrating)`
+
+`vm._update()` 中 主要是调用`__patch__` (位于 src/platforms/web/runtime/index ) 
+
+实际上调用的是 `createPatchFunction` (位于 src/core/vdom/patch ) 中return 的 `patch`
+
+`patch`判断当前进来的是组件,还是初次渲染,还是节点更新.节点更新时调用`patchVnode`.
+
+`patchVnode`根据新旧vnode对比决定是否复用原有DOM,修改哪些属性,插入到哪个位置,儿子节点递归创建等等.
+
+里面再调用`createElm()` 创建真实DOM并插入指定位置.
+
+
+```js
+return function patch (oldVnode, vnode, hydrating, removeOnly) {
+
+    // 如果vnode 新节点不存在 但是 oldVnode存在 说明是要销毁 oldVnode
+    if (isUndef(vnode)) {
+      if (isDef(oldVnode)) invokeDestroyHook(oldVnode)
+      return
+    }
+
+    let isInitialPatch = false
+    const insertedVnodeQueue = []
+
+    // 如果vnode 存在 但是 oldVnode不存在, 说明是需要创建新节点,则调用 createElm创建新节点
+    if (isUndef(oldVnode)) { //进行这一步一般是组件.
+      isInitialPatch = true
+      createElm(vnode, insertedVnodeQueue)
+
+    // 当vnode和oldVnode都存在时  
+    } else {
+      const isRealElement = isDef(oldVnode.nodeType)
+
+    // 如果oldVnode不是真实节点，并且vnode和oldVnode是同一节点时，说明是需要比较新旧节点，则调用patchVnode进行patch。
+      if (!isRealElement && sameVnode(oldVnode, vnode)) { // 真正patch, diff算法在里面
+        // patch existing root node
+        patchVnode(oldVnode, vnode, insertedVnodeQueue, null, null, removeOnly)
+      } else {
+
+    //如果oldVnode是真实节点
+        if (isRealElement) {  // 进了这里说明是初次渲染
+    // 如果oldVnode是元素节点，且含有data-server-rendered属性，移除该属性，设置hydrating为true。
+          if (oldVnode.nodeType === 1 && oldVnode.hasAttribute(SSR_ATTR)) {
+            oldVnode.removeAttribute(SSR_ATTR)
+            hydrating = true
+          }
+
+    // 如果hydrating为true，调用hydrate方法，将Virtural DOM与真实DOM进行映射，然后将oldVnode设置为对应的Virtual DOM。
+          if (isTrue(hydrating)) {
+            if (hydrate(oldVnode, vnode, insertedVnodeQueue)) {
+              invokeInsertHook(vnode, insertedVnodeQueue, true)
+              return oldVnode
+            } else if (process.env.NODE_ENV !== 'production') {
+              warn(
+                'The client-side rendered virtual DOM tree is not matching ' +
+                'server-rendered content. This is likely caused by incorrect ' +
+                'HTML markup, for example nesting block-level elements inside ' +
+                '<p>, or missing <tbody>. Bailing hydration and performing ' +
+                'full client-side render.'
+              )
+            }
+          }
+          // either not server-rendered, or hydration failed.
+          // create an empty node and replace it
+          oldVnode = emptyNodeAt(oldVnode)
+        }
+
+    //走到这里有两种情况
+    //oldVnode是真实节点时,说明是初次渲染,直接用新节点渲染代替,
+    //oldVnode和vnode是完全不同的节点,如div变成span,也是直接用新节点代替,和初次渲染一样.
+    //找到oldVnode.elm的父节点，根据vnode创建一个真实的DOM节点，并插入到该父节点中的oldVnode.elm位置。如果组件根节点被替换，遍历更新父节点element。然后移除旧节点。
+        const oldElm = oldVnode.elm
+        const parentElm = nodeOps.parentNode(oldElm)
+
+        // create new node
+        createElm(
+          vnode,
+          insertedVnodeQueue,
+          oldElm._leaveCb ? null : parentElm,
+          nodeOps.nextSibling(oldElm)
+        )
+
+        // 递归更新该节点的父节点的啥啥属性.
+        // update parent placeholder node element, recursively
+        if (isDef(vnode.parent)) {
+          let ancestor = vnode.parent
+          const patchable = isPatchable(vnode)
+          while (ancestor) {
+            for (let i = 0; i < cbs.destroy.length; ++i) {
+              cbs.destroy[i](ancestor)
+            }
+            ancestor.elm = vnode.elm
+            if (patchable) {
+              for (let i = 0; i < cbs.create.length; ++i) {
+                cbs.create[i](emptyNode, ancestor)
+              }
+              const insert = ancestor.data.hook.insert
+              if (insert.merged) {
+                // start at index 1 to avoid re-invoking component mounted hook
+                for (let i = 1; i < insert.fns.length; i++) {
+                  insert.fns[i]()
+                }
+              }
+            } else {
+              registerRef(ancestor)
+            }
+            ancestor = ancestor.parent
+          }
+        }
+
+        // destroy old node
+        if (isDef(parentElm)) {
+          removeVnodes([oldVnode], 0, 0)
+        } else if (isDef(oldVnode.tag)) {
+          invokeDestroyHook(oldVnode)
+        }
+      }
+    }
+```
+
+
+
+虚拟DOM将转化为真实DOM并挂载.
+
+
+
+
+## diff算法，
 
 
 ## 考虑一下key的作用，不设置key或者key设置为index的问题
