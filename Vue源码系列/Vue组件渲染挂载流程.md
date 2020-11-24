@@ -90,6 +90,16 @@ new Vue({
 createComponent对传入参数进行检查，假如是对象，此时同样会调用Vue.extend() 将其变为sub函数，假如本来就是函数，则不变。
 所以二者本质都得被调用一遍extend()，转化为sub构造函数
 
+组件初始化的时机是patch 初次渲染 中挂载父节点时,会调用`createElm()`,里面判断不同vnode节点类型,创建对应真实节点,
+`createElm()`中,`nodeOps.createElement(tag, vnode)`创建父真实节点后,
+调用`createChildren()`,对父节点的所有子节点(虚拟节点)循环回调调用`createElm()`,来创建子节点(真实节点).
+`createElm()`中调用`createComponent()`检查每个子节点是否为组件类型,如果是,
+则调用子组件的初始化方法`isDef(i = i.hook) && isDef(i = i.init)` ,
+而组件初始化方法`i.init`中又调用了子组件的构造函数`return new vnode.componentOptions.Ctor(options)`,
+new了一个组件实例,并调用了$mount()方法,将其转化为了真实DOM
+挂载到了组件节点vnode的componentInstance属性上,然后回到子节点的`createElm()`继续,走到调用其中的`insert()`,
+`insert()`,该方法将真实节点插入指定位置,将其添加到父节点下,子节点处理结束,
+之后再回到父节点的`createElm()`,走到调用其中的`insert()`,将其添加到根节点,父节点处理结束.
 
  
 
@@ -112,18 +122,6 @@ _init 里调用 `vm.$mount(vm.$options.el)`
 `patchVnode`根据新旧vnode对比决定是否复用原有DOM,修改哪些属性,插入到哪个位置,儿子节点递归创建等等.
 
 里面再调用`createElm()` 创建真实DOM并插入指定位置.
-
-
-组件初始化的时机是patch 初次渲染 中挂载父节点时,会调用`createElm()`,里面判断不同vnode节点类型,创建对应真实节点,
-`createElm()`中,`nodeOps.createElement(tag, vnode)`创建父真实节点后,
-调用`createChildren()`,对父节点的所有子节点(虚拟节点)循环回调调用`createElm()`,来创建子节点(真实节点).
-`createElm()`中调用`createComponent()`检查每个子节点是否为组件类型,如果是,
-则调用子组件的初始化方法`isDef(i = i.hook) && isDef(i = i.init)` ,
-而组件初始化方法`i.init`中又调用了子组件的构造函数`return new vnode.componentOptions.Ctor(options)`,
-new了一个组件实例,并调用了$mount()方法,将其转化为了真实DOM
-挂载到了组件节点vnode的componentInstance属性上,然后回到子节点的`createElm()`继续,走到调用其中的`insert()`,
-`insert()`,该方法将真实节点插入指定位置,将其添加到父节点下,子节点处理结束,
-之后再回到父节点的`createElm()`,走到调用其中的`insert()`,将其添加到根节点,父节点处理结束.
 
 ### patch
 
@@ -261,7 +259,7 @@ return function patch (oldVnode, vnode, hydrating, removeOnly) {
 
 ```js
 function patchVnode ( oldVnode, vnode, insertedVnodeQueue, ownerArray, index, removeOnly ) {
-
+    
     if (oldVnode === vnode) {
       return
     }

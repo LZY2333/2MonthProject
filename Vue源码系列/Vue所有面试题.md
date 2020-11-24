@@ -18,11 +18,11 @@
 
 下面是我收集并精选的所有面试题
 
-### 1. 说一下MVVM  
+### 1. 说一下MVVM
 **MVVM**
-MVVM是Model-View-ViewModel缩写，也就是把MVC中的Controller演变成ViewModel。
+MVVM是Model-View-ViewModel缩写，其实就是把MVC中的Controller演变成ViewModel,最典型的代表就是Vue。
 Model层代表数据模型，View代表UI组件，ViewModel是View和Model层的桥梁。
-数据数据变化会通知viewModel层自动将数据渲染到页面中，视图变化的时候会通知viewModel层更新数据。
+Model层数据变化会通知viewModel层将自动修改View层视图，视图变化的时候会通知viewModel层更新数据。
 
 ### 2. Vue2.x响应式原理
 **响应式**
@@ -325,8 +325,8 @@ $attrs主要的作用就是实现批量传递数据。provide/inject更适合应
 
 ### 25.Vue的组件渲染流程
 ①在渲染父组件时会创建父组件的虚拟节点,其中可能包含子组件的标签
-②在创建虚拟节点时,获取组件的定义使用Vue.extend生成组件的构造函数。 
-③将虚拟节点转化成真实节点时，会创建组件的实例并且调用组件的$mount方法。 
+②在创建虚拟节点时,获取组件的定义使用Vue.extend生成组件的构造函数。
+③将虚拟节点转化成真实节点时，会创建组件的实例并且调用组件的$mount方法。
 ④所以组件的创建过程是先父后子
 
 ### 26. Vue.use是干什么的?原理是什么?
